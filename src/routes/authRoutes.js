@@ -5,6 +5,7 @@ const router = express.Router()
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import isAdmin from '../middlewares/isAdmin'
+import { body, validationResult } from 'express-validator'
 
 /*
 type : GET
@@ -30,24 +31,32 @@ params : none
 isProtected: false 
 */
 
-router.post('/signup', async (req, res) => {
+router.post('/signup',
+    body('firstName').isLength({ min: 5 }),
+    body('email').isEmail(),
+    body('password').isLength({ min: 10 })
+    , async (req, res) => {
 
-    try {
-        const { firstName, lastName = '', email, password } = req.body
-        //Use bcrypt to hash password
-        const salt = await bcrypt.genSalt(5)
-        const hashedPassword = await bcrypt.hash(password, salt)
+        const { errors } = validationResult(req)
 
-        const user = new User({ firstName, lastName, email, password: hashedPassword })
+        if (errors.length > 0) return res.status(403).json({ errors, message: "Bad request" })
 
-        await user.save()
+        try {
+            const { firstName, lastName = '', email, password } = req.body
+            //Use bcrypt to hash password
+            const salt = await bcrypt.genSalt(5)
+            const hashedPassword = await bcrypt.hash(password, salt)
 
-        res.json({ user })
-    } catch (error) {
-        console.log(error.message)
-        res.status(500).json({ users: {} })
-    }
-})
+            const user = new User({ firstName, lastName, email, password: hashedPassword })
+
+            await user.save()
+
+            res.json({ user })
+        } catch (error) {
+            console.log(error.message)
+            res.status(500).json({ users: {} })
+        }
+    })
 
 /*
 type : POST
@@ -70,11 +79,8 @@ router.post('/login', async (req, res) => {
                 return res.json({ token })
             } else {
                 return res.json({ token: null, message: "Unauthorised" })
-
             }
-
         }
-
         return res.json({ token: null, message: "User doesn't exixst" })
 
     } catch (error) {
